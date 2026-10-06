@@ -1,0 +1,21 @@
+{
+  "name": "macintosh-family-recipes",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test tests/collection.test.js",
+    "test:browser": "npm run build && playwright test",
+    "format": "prettier --write src tests build.mjs playwright.config.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.117.2",
+    "@vercel/analytics": "2.0.1",
+    "esbuild": "0.28.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "prettier": "^3.9.9"
+  }
+}

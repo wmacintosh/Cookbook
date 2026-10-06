@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#073e50" />
+    <title>MacIntosh Family Recipes</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/">MacIntosh <span>Family Recipes</span></a>
+      <nav>
+        <span id="identity"></span>
+        <details id="manageMenu" class="manage-menu" hidden>
+          <summary>Manage collection</summary>
+          <div class="manage-actions">
+            <button id="quickButton" class="quiet" hidden>Quick edit</button
+            ><button id="familyButton" class="quiet" hidden>
+              Family &amp; sources</button
+            ><button id="reviewButton" class="quiet" hidden>
+              Review submissions
+            </button>
+          </div>
+        </details>
+        <button id="addButton" hidden>Add recipe</button
+        ><button id="signOut" class="quiet" hidden>Sign out</button>
+      </nav>
+    </header>
+    <div id="notice" role="status" aria-live="polite"></div>
+    <main id="authView" class="auth">
+      <div class="auth-heading">
+        <p class="overline">THE FAMILY COLLECTION</p>
+        <h1>Recipes worth keeping.</h1>
+        <p>
+          Family favourites, in their original handwriting.<br />Shared with the
+          people who make them.
+        </p>
+      </div>
+      <form id="authForm" class="auth-card">
+        <h2 id="authTitle">Welcome back</h2>
+        <p id="authHelp">
+          Sign in to browse and contribute to the family collection.
+        </p>
+        <label
+          >Email address<input
+            name="email"
+            type="email"
+            autocomplete="email"
+            required /></label
+        ><label
+          >Password<input
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            required
+            minlength="12" /></label
+        ><button id="authSubmit" type="submit">Sign in</button>
+        <p id="authError" class="error" role="alert"></p>
+        <details class="account-help">
+          <summary>Need help signing in?</summary>
+          <p>
+            Forgot your password or having trouble with an invitation? Contact
+            Wade to arrange account recovery or request a new invitation link.
+          </p>
+        </details>
+        <p id="inviteHelp" class="muted">
+          New here? Ask Wade for a family invitation.
+        </p>
+      </form>
+    </main>
+    <main id="collection" hidden>
+      <section class="toolbar">
+        <label class="search-label"
+          ><span class="sr-only"
+            >Search recipes, ingredients, or family names</span
+          ><input
+            id="search"
+            type="search"
+            placeholder="Search recipes, ingredients, or family names" /></label
+        ><select id="contributorFilter" aria-label="Filter by contributor">
+          <option value="">All contributors</option></select
+        ><select id="statusFilter" aria-label="Filter by review status">
+          <option value="">All recipes</option>
+          <option value="review">Needs source review</option>
+          <option value="verified">Verified recipes</option></select
+        ><button id="clearFilters" class="quiet" hidden>Clear filters</button
+        ><button id="refresh" class="quiet">Refresh</button>
+      </section>
+      <nav
+        id="categories"
+        class="categories"
+        aria-label="Recipe categories"
+      ></nav>
+      <button
+        id="categoryToggle"
+        class="quiet"
+        aria-controls="categories"
+        aria-expanded="false"
+      >
+        All categories
+      </button>
+      <div class="workspace">
+        <aside class="recipe-browser">
+          <div class="list-heading">
+            <span id="recipeCount" role="status" aria-live="polite"></span
+            ><span class="muted">Family collection</span>
+          </div>
+          <div id="recipeList" class="recipe-list"></div>
+        </aside>
+        <article id="recipePanel" class="recipe-panel">
+          <p class="muted">Choose a recipe to open it.</p>
+        </article>
+      </div>
+    </main>
+    <dialog
+      id="editorDialog"
+      aria-labelledby="editorTitle"
+      aria-describedby="editorHelp"
+    >
+      <button class="close" aria-label="Close recipe editor">×</button>
+      <h2 id="editorTitle">Add a family recipe</h2>
+      <p id="editorHelp" class="muted"></p>
+      <form id="editorForm">
+        <fieldset>
+          <legend>Recipe details</legend>
+          <label
+            >Recipe title<input name="title" required maxlength="200"
+          /></label>
+          <div class="field-pair">
+            <label
+              >Category<select
+                name="category"
+                id="editCategory"
+              ></select></label
+            ><label
+              >Recipe contributor<select
+                name="contributor_id"
+                id="editContributor"
+              ></select
+            ></label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Family attribution</legend>
+          <label
+            >Original recipe attribution<input
+              name="attribution"
+              placeholder="Who is named on the original recipe?"
+              maxlength="200"
+          /></label>
+        </fieldset>
+        <fieldset>
+          <legend>Ingredients &amp; method</legend>
+          <label
+            >Ingredients <span class="hint">One ingredient per line</span
+            ><textarea name="ingredients" rows="7"></textarea></label
+          ><label
+            >Directions <span class="hint">One step per line</span
+            ><textarea name="instructions" rows="7"></textarea></label
+          ><label
+            >Recipe notes<textarea name="notes" rows="3"></textarea>
+          </label>
+        </fieldset>
+        <fieldset>
+          <legend>Sources &amp; photos</legend>
+          <label
+            >What did you change?<input
+              name="change_note"
+              placeholder="For example, corrected the baking temperature" /></label
+          ><label
+            >Original scan
+            <span class="hint">JPG, PNG, WebP or PDF · up to 20 MB</span
+            ><input
+              name="scan"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,application/pdf" /></label
+          ><label
+            >Recipe card photo
+            <span class="hint"
+              >Optional · a new upload becomes this recipe’s card photo</span
+            ><input
+              name="photo"
+              type="file"
+              accept="image/jpeg,image/png,image/webp" /></label
+          ><img
+            id="photoPreview"
+            class="photo-preview"
+            alt="Preview of your selected recipe photo"
+            hidden
+          /><label
+            >Choose card photo<select
+              name="card_photo_path"
+              id="cardPhotoSelect"
+            ></select
+          ></label>
+        </fieldset>
+        <label id="verifiedLabel" class="check"
+          ><input type="checkbox" name="mark_verified" /> I compared this
+          transcription with the original and verified it.</label
+        >
+        <div class="editor-footer">
+          <span id="saveProgress" role="status" aria-live="polite"></span>
+          <div class="actions">
+            <button type="button" id="cancelEditor" class="quiet">Cancel</button
+            ><button type="submit" id="saveButton">Save changes</button>
+          </div>
+        </div>
+        <p id="saveMessage" class="error" role="alert"></p>
+      </form>
+    </dialog>
+    <dialog aria-labelledby="familyDialogTitle" id="familyDialog">
+      <button class="close" aria-label="Close family settings">×</button>
+      <h2 id="familyDialogTitle">Family &amp; original sources</h2>
+      <section>
+        <h3>Invite a family member</h3>
+        <p class="muted">
+          They can browse, submit recipes, and propose edits. You review changes
+          before they appear for everyone.
+        </p>
+        <form id="inviteForm">
+          <div class="field-pair">
+            <label>Name<input name="name" required /></label
+            ><label>Email<input name="email" type="email" required /></label>
+          </div>
+          <button>Create invitation link</button>
+        </form>
+        <div id="inviteResult" class="message"></div>
+      </section>
+      <section>
+        <h3>Recipe categories</h3>
+        <form id="categoryForm">
+          <label
+            >New category<input name="name" required maxlength="80" /></label
+          ><button>Add category</button>
+        </form>
+        <div id="categoryList"></div>
+      </section>
+      <section>
+        <h3>Recipe contributors</h3>
+        <p class="muted">
+          Contributors keep their assigned color. Original authorship is
+          recorded separately on each recipe.
+        </p>
+        <div id="contributorList"></div>
+        <form id="contributorForm">
+          <div class="field-pair">
+            <label>Contributor name<input name="name" required /></label
+            ><label
+              >Permanent color<input name="color" type="color" value="#7B3E98"
+            /></label>
+          </div>
+          <button>Add contributor</button>
+        </form>
+      </section>
+      <section>
+        <h3>Original recipe-card PDFs</h3>
+        <p class="muted">
+          Upload “Recipe box 1.pdf” and “Recipe box 2.pdf” to connect their
+          existing recipe and page references automatically. Originals stay
+          private to the family.
+        </p>
+        <input
+          id="sourceUpload"
+          type="file"
+          accept="application/pdf"
+          multiple
+          aria-label="Upload original recipe-card PDFs"
+        />
+        <div id="sourceList"></div>
+      </section>
+      <section>
+        <h3>Download a backup</h3>
+        <p class="muted">
+          Includes recipes, contributor colors, and source references. Scan
+          files can be downloaded from each original.
+        </p>
+        <button id="exportButton" class="quiet">Download recipe data</button>
+      </section>
+    </dialog>
+    <dialog aria-labelledby="reviewDialogTitle" id="reviewDialog">
+      <button class="close" aria-label="Close submission review">×</button>
+      <h2 id="reviewDialogTitle">Review submissions</h2>
+      <div id="reviewList"></div>
+    </dialog>
+    <dialog
+      aria-labelledby="quickDialogTitle"
+      id="quickDialog"
+      class="quick-dialog"
+    >
+      <button class="close" aria-label="Close quick editor">×</button>
+      <h2 id="quickDialogTitle">Quick edit recipes</h2>
+      <p class="muted">
+        Filter rows, edit cells, or paste a spreadsheet block starting in a
+        cell. Ingredients and directions use one item per line. Select rows for
+        bulk changes.
+      </p>
+      <input
+        aria-label="Find recipes to edit"
+        id="quickSearch"
+        type="search"
+        placeholder="Find recipes"
+      />
+      <div class="actions">
+        <select id="bulkCategory" aria-label="Bulk category"></select
+        ><select id="bulkContributor" aria-label="Bulk contributor"></select
+        ><button id="applyBulk" class="quiet">Apply to selected</button>
+      </div>
+      <div class="quick-scroll"><table id="quickTable"></table></div>
+      <div class="actions">
+        <button id="quickSave">Save changes</button
+        ><span id="quickStatus" role="status"></span>
+      </div>
+    </dialog>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
