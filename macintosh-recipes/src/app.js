@@ -1,3 +1,4 @@
+import { auditRecipes } from "./recipe-quality.js";
 import {
   measurementUnits,
   parseIngredient,
@@ -878,6 +879,7 @@ const quickFields = [
   "instructions",
   "notes",
 ];
+let quickQuality = new Map();
 let quickRows = [],
   quickBusy = false;
 const quickValue = (r, k) =>
@@ -909,6 +911,11 @@ function quickVisible() {
   const q = $("#quickSearch").value.trim().toLowerCase();
   return quickRows.filter(
     (row) =>
+      ($("#quickView").value !== "missing" ||
+        quickQuality.get(row.id)?.missing) &&
+      ($("#quickView").value !== "empty" || quickQuality.get(row.id)?.empty) &&
+      ($("#quickView").value !== "duplicates" ||
+        quickQuality.get(row.id)?.duplicates.length) &&
       [row.values.title, row.values.ingredients, row.values.attribution]
         .join(" ")
         .toLowerCase()
@@ -946,6 +953,10 @@ function quickStatus() {
   $("#quickSelectAll").indeterminate = checked > 0 && checked < shown.length;
   $("#quickSelectAll").disabled = quickBusy || !shown.length;
   $("#quickClearSelection").disabled = quickBusy || !selected;
+  $("#quickDelete").disabled = quickBusy || !selected;
+  $("#quickDelete").textContent = selected
+    ? `Delete selected (${selected})`
+    : "Delete selected";
   $("#applyBulk").disabled =
     quickBusy ||
     !selected ||
@@ -963,6 +974,16 @@ function quickField(row, key, label, multiline = false) {
   }</label>`;
 }
 function renderQuick() {
+  quickQuality = auditRecipes(
+    quickRows.map((row) => ({
+      id: row.id,
+      document: {
+        ...row.values,
+        ingredients: row.values.ingredients.split("\n"),
+        instructions: row.values.instructions.split("\n"),
+      },
+    })),
+  );
   $("#quickTable").innerHTML =
     quickVisible()
       .map(
@@ -977,6 +998,7 @@ function renderQuick() {
         <div class="quick-text-fields">${quickField(row, "ingredients", "Ingredients", true)}${quickField(row, "instructions", "Directions", true)}${quickField(row, "notes", "Notes", true)}${quickField(row, "attribution", "Original attribution")}</div>
         <p class="muted">Use one ingredient or direction per line.</p>
       </details>
+      ${quickQuality.get(row.id)?.reasons.length ? `<p class="quick-quality-note">${esc(quickQuality.get(row.id).reasons.join(" "))}</p>` : ""}
       <p class="quick-row-error" ${row.error ? "" : "hidden"}>${esc(row.error || "")}</p>
     </article>`,
       )
@@ -1036,6 +1058,55 @@ $("#quickSelectAll").onchange = (e) => {
 $("#quickClearSelection").onclick = () => {
   quickRows.forEach((row) => (row.selected = false));
   renderQuick();
+};
+$("#quickDelete").onclick = async () => {
+  if (quickBusy || state.member?.role !== "owner") return;
+  const selected = quickRows.filter((row) => row.selected);
+  if (!selected.length) return;
+  const names = selected.map((row) => "• " + row.original.title).join("\n");
+  if (
+    !confirm(
+      `Delete ${selected.length} selected recipe${selected.length === 1 ? "" : "s"} from the family collection, including any selected outside this view?\n\n${names}\n\nUnsaved edits to these recipes will be discarded. Original sources and edit history will be retained.`,
+    )
+  )
+    return;
+  quickBusy = true;
+  $("#quickDialog")
+    .querySelectorAll("input,textarea,select,button")
+    .forEach((el) => (el.disabled = true));
+  let deleted = 0,
+    failed = 0;
+  for (const row of selected) {
+    $("#quickStatus").textContent =
+      `Deleting ${deleted + failed + 1} of ${selected.length}…`;
+    try {
+      await api("delete", { id: row.id, version: row.version });
+      quickRows = quickRows.filter((r) => r.id !== row.id);
+      state.recipes = state.recipes.filter((r) => r.id !== row.id);
+      if (state.selected === row.id) state.selected = null;
+      deleted++;
+    } catch (error) {
+      row.error = "Could not delete: " + error.message;
+      failed++;
+    }
+  }
+  let refreshMessage = "";
+  try {
+    await loadData();
+  } catch {
+    refreshMessage = " Refresh the collection later to check its latest state.";
+  }
+  quickBusy = false;
+  $("#quickDialog")
+    .querySelectorAll("input,textarea,select,button")
+    .forEach((el) => (el.disabled = false));
+  renderQuick();
+  $("#quickMessage").textContent =
+    `${deleted} recipe${deleted === 1 ? "" : "s"} deleted.` +
+    (failed
+      ? ` ${failed} could not be deleted and remain selected. Your other edits have been kept.`
+      : " Your other edits have been kept.") +
+    refreshMessage;
 };
 $("#quickUndo").onclick = () => {
   if (!confirm("Discard all unsaved recipe changes?")) return;

@@ -43,8 +43,11 @@ const initialRecipes = [
     },
   },
 ];
-async function setup(page, { failure = false, delay = 0 } = {}) {
-  const recipes = structuredClone(initialRecipes),
+async function setup(
+  page,
+  { failure = false, delay = 0, extraRecipes = [] } = {},
+) {
+  const recipes = structuredClone([...initialRecipes, ...extraRecipes]),
     requests = [],
     errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -101,7 +104,7 @@ async function setup(page, { failure = false, delay = 0 } = {}) {
             submitted_by: "owner",
             contributor_id: "jean",
             document: {
-              ...recipes[0].document,
+              ...initialRecipes[0].document,
               ingredients: ["3 cups flour", "1 cup water"],
             },
           },
@@ -133,6 +136,12 @@ async function setup(page, { failure = false, delay = 0 } = {}) {
             error: "This recipe changed. Reload and review your edits.",
           }),
         });
+        return;
+      }
+      if (payload.action === "delete") {
+        const index = recipes.findIndex((r) => r.id === payload.id);
+        if (index >= 0) recipes.splice(index, 1);
+        await json({});
         return;
       }
       if (payload.action === "save") {
@@ -521,4 +530,95 @@ test("spreadsheet paste follows visible metadata column order", async ({
   expect(requests[0].document.title).toBe("Updated Bread");
   expect(requests[0].document.category).toBe("Main dishes");
   expect(requests[0].contributor_id).toBe("jean");
+});
+
+test("quick delete confirms selection and preserves edits to other recipes", async ({
+  page,
+}) => {
+  const { requests } = await setup(page);
+  await openQuick(page);
+  await expect(page.locator("#quickDelete")).toBeDisabled();
+  await page
+    .locator('[data-row="bread"] input[data-col="0"]')
+    .fill("Keep this draft");
+  await page.locator('[data-row="soup"] .quick-check').check();
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await page.locator("#quickDelete").click();
+  expect(requests).toHaveLength(0);
+  page.once("dialog", async (dialog) => {
+    expect(dialog.message()).toContain("Carrot Soup");
+    expect(dialog.message()).not.toContain("Family Bread");
+    await dialog.accept();
+  });
+  await page.locator("#quickDelete").click();
+  await expect(page.locator("#quickMessage")).toContainText("1 recipe deleted");
+  await expect(page.locator('[data-row="soup"]')).toHaveCount(0);
+  await expect(
+    page.locator('[data-row="bread"] input[data-col="0"]'),
+  ).toHaveValue("Keep this draft");
+  expect(requests[0]).toMatchObject({
+    action: "delete",
+    id: "soup",
+    version: 1,
+  });
+});
+test("partial delete keeps failures selected and retry excludes deleted rows", async ({
+  page,
+}) => {
+  let failed = false;
+  const { requests } = await setup(page, {
+    failure: (payload) => {
+      if (payload.action === "delete" && payload.id === "soup" && !failed) {
+        failed = true;
+        return true;
+      }
+      return false;
+    },
+  });
+  await openQuick(page);
+  await page.locator("#quickSelectAll").check();
+  page.on("dialog", (dialog) => dialog.accept());
+  await page.locator("#quickDelete").click();
+  await expect(page.locator("#quickMessage")).toContainText(
+    "1 could not be deleted",
+  );
+  await expect(page.locator("#quickDelete")).toHaveText("Delete selected (1)");
+  await page.locator("#quickDelete").click();
+  await expect(page.locator("#quickCount")).toHaveText("0 of 0 recipes");
+  expect(requests.filter((r) => r.id === "bread")).toHaveLength(1);
+});
+
+test("cleanup filters distinguish duplicate text and empty source records", async ({
+  page,
+}) => {
+  await setup(page, {
+    extraRecipes: [
+      { ...structuredClone(initialRecipes[0]), id: "duplicate" },
+      {
+        id: "scan",
+        version: 1,
+        document: { title: "Original card", ingredients: [], instructions: [] },
+      },
+    ],
+  });
+  await openQuick(page);
+  await page.locator("#quickView").selectOption("duplicates");
+  await expect(page.locator("#quickCount")).toHaveText("2 of 4 recipes");
+  await expect(page.locator(".quick-quality-note").first()).toContainText(
+    "Compare attribution and sources",
+  );
+  await page.locator("#quickView").selectOption("empty");
+  await expect(page.locator("#quickCount")).toHaveText("1 of 4 recipes");
+  await expect(page.locator(".quick-quality-note")).toContainText(
+    "No transcribed recipe text",
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator("#quickSelectAll").check();
+  await expect(page.locator("#quickDelete")).toBeInViewport();
+  expect(
+    await page
+      .locator("#quickDialog")
+      .evaluate((el) => el.scrollWidth <= el.clientWidth),
+  ).toBe(true);
+  await page.screenshot({ path: "test-results/quick-cleanup-mobile.png" });
 });

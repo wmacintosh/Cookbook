@@ -330,6 +330,9 @@
             <option value="all">All recipes</option>
             <option value="changed">Unsaved changes</option>
             <option value="selected">Selected recipes</option>
+            <option value="duplicates">Possible duplicates</option>
+            <option value="missing">Missing fields / placeholders</option>
+            <option value="empty">No recipe text</option>
           </select></label
         >
       </div>
@@ -339,6 +342,8 @@
             ><input type="checkbox" id="quickSelectAll" /> Select all
             shown</label
           ><span id="quickSelection"></span
+          ><button id="quickDelete" class="quiet danger" disabled>
+            Delete selected</button
           ><button id="quickClearSelection" class="quiet">
             Clear selection
           </button>

@@ -1478,3 +1478,15 @@ legend {
     margin-bottom: 8px;
   }
 }
+
+.quick-quality-note {
+  margin: 8px 0 0 36px;
+  font-size: 12px;
+  color: #805d20;
+  line-height: 1.5;
+}
+.quick-selection #quickDelete {
+  margin-left: 0;
+  color: #a02925;
+  border-color: #d8aaa8;
+}
