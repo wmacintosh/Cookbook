@@ -1,4 +1,10 @@
 import {
+  measurementUnits,
+  parseIngredient,
+  ingredientLine,
+  ingredientSuggestions,
+} from "./ingredients.js";
+import {
   filterRecipes,
   readRoute,
   routeURL,
@@ -433,6 +439,71 @@ async function renderScans(r, sequence) {
   if (sequence === renderSequence)
     $("#detailContent").innerHTML = panels.join("");
 }
+let ingredientRows = [];
+let ingredientTextMode = false;
+function syncIngredients() {
+  $("#editorForm").elements.ingredients.value = ingredientRows
+    .map(ingredientLine)
+    .filter((line) => line.trim())
+    .join("\n");
+}
+function renderIngredients(focusIndex = null) {
+  $("#ingredientRows").innerHTML = ingredientRows
+    .map((row, i) => {
+      const units = [...new Set([...measurementUnits, row.unit])];
+      return `<div class="ingredient-entry" data-ingredient="${i}">
+      <label>Quantity<input data-part="quantity" aria-label="Quantity ${i + 1}" placeholder="e.g. 1 ½" value="${esc(row.quantity)}"></label>
+      <label>Measurement<select data-part="unit" aria-label="Measurement ${i + 1}">${units.map((u) => `<option value="${esc(u)}" ${u === row.unit ? "selected" : ""}>${esc(u || "No unit")}</option>`).join("")}</select></label>
+      <label>Ingredient<input data-part="ingredient" aria-label="Ingredient ${i + 1}" list="ingredientSuggestions" autocomplete="off" placeholder="Search or type an ingredient" value="${esc(row.ingredient)}"></label>
+      <button type="button" class="quiet" data-remove-ingredient="${i}" aria-label="Remove ingredient ${i + 1}">×</button>
+    </div>`;
+    })
+    .join("");
+  if (focusIndex !== null)
+    $("#ingredientRows")
+      .querySelector(`[data-ingredient="${focusIndex}"] input`)
+      ?.focus();
+}
+function setIngredientMode(textMode) {
+  ingredientTextMode = textMode;
+  $("#ingredientRows").hidden = textMode;
+  $("#addIngredient").hidden = textMode;
+  $("#ingredientTextLabel").hidden = !textMode;
+  $("#ingredientMode").textContent = textMode
+    ? "Use ingredient rows"
+    : "Paste or edit as text";
+}
+function loadIngredientRows() {
+  const text = $("#editorForm").elements.ingredients.value;
+  ingredientRows = text
+    ? text.split("\n").map(parseIngredient)
+    : [parseIngredient("")];
+  renderIngredients();
+}
+$("#ingredientRows").oninput = (e) => {
+  const el = e.target.closest("[data-ingredient]");
+  if (!el || !e.target.dataset.part || editorBusy) return;
+  ingredientRows[Number(el.dataset.ingredient)][e.target.dataset.part] =
+    e.target.value;
+  syncIngredients();
+};
+$("#ingredientRows").onclick = (e) => {
+  const button = e.target.closest("[data-remove-ingredient]");
+  if (!button || editorBusy) return;
+  const index = Number(button.dataset.removeIngredient);
+  ingredientRows.splice(index, 1);
+  syncIngredients();
+  renderIngredients(Math.min(index, ingredientRows.length - 1));
+  if (!ingredientRows.length) $("#addIngredient").focus();
+};
+$("#addIngredient").onclick = () => {
+  ingredientRows.push(parseIngredient(""));
+  renderIngredients(ingredientRows.length - 1);
+};
+$("#ingredientMode").onclick = () => {
+  if (ingredientTextMode) loadIngredientRows();
+  setIngredientMode(!ingredientTextMode);
+};
 function openEditor(r = null) {
   state.editing = r;
   const f = $("#editorForm");
@@ -471,6 +542,11 @@ function openEditor(r = null) {
     f.elements.contributor_id.value = state.member.contributor_id;
     f.elements.category.value = "Other family recipes";
   }
+  loadIngredientRows();
+  setIngredientMode(false);
+  $("#ingredientSuggestions").innerHTML = ingredientSuggestions(state.recipes)
+    .map((name) => `<option value="${esc(name)}"></option>`)
+    .join("");
   const photos = (r?.document.media || []).filter(
     (m) => m.type === "recipe_photo" && m.path && m.mime?.startsWith("image/"),
   );
@@ -829,63 +905,166 @@ function quickOptions(type, value) {
 function quickDirty(row) {
   return quickFields.some((k) => row.values[k] !== row.original[k]);
 }
+function quickVisible() {
+  const q = $("#quickSearch").value.trim().toLowerCase();
+  return quickRows.filter(
+    (row) =>
+      [row.values.title, row.values.ingredients, row.values.attribution]
+        .join(" ")
+        .toLowerCase()
+        .includes(q) &&
+      (!$("#quickCategory").value ||
+        row.values.category === $("#quickCategory").value) &&
+      ($("#quickContributor").value === "all" ||
+        row.values.contributor_id === $("#quickContributor").value) &&
+      ($("#quickView").value !== "changed" || quickDirty(row)) &&
+      ($("#quickView").value !== "selected" || row.selected),
+  );
+}
 function quickStatus() {
   const n = quickRows.filter(quickDirty).length;
-  $("#quickStatus").textContent = n + " recipes with unsaved changes";
+  const selected = quickRows.filter((r) => r.selected).length;
+  $("#quickDialog").classList.toggle("has-selection", selected > 0);
+  const shownIds = [...$("#quickTable").querySelectorAll("[data-row]")].map(
+    (el) => el.dataset.row,
+  );
+  const shown = quickRows.filter((r) => shownIds.includes(r.id));
+  const checked = shown.filter((r) => r.selected).length;
+  $("#quickStatus").textContent = n
+    ? `${n} recipe${n === 1 ? "" : "s"} with unsaved changes`
+    : "All changes saved";
+  $("#quickSave").textContent = n
+    ? `Save ${n} recipe${n === 1 ? "" : "s"}`
+    : "Save changes";
   $("#quickSave").disabled = quickBusy || !n;
+  $("#quickUndo").disabled = quickBusy || !n;
+  $("#quickSelection").textContent =
+    `${selected} selected${selected > checked ? ` · ${selected - checked} outside this view` : ""}`;
+  $("#quickCount").textContent =
+    `${shown.length} of ${quickRows.length} recipes`;
+  $("#quickSelectAll").checked = !!shown.length && checked === shown.length;
+  $("#quickSelectAll").indeterminate = checked > 0 && checked < shown.length;
+  $("#quickSelectAll").disabled = quickBusy || !shown.length;
+  $("#quickClearSelection").disabled = quickBusy || !selected;
+  $("#applyBulk").disabled =
+    quickBusy ||
+    !selected ||
+    (!$("#bulkCategory").value && $("#bulkContributor").value === "keep");
+}
+function quickField(row, key, label, multiline = false) {
+  const col = quickFields.indexOf(key);
+  const attrs = `data-col="${col}" aria-label="${esc(label)}"`;
+  return `<label>${label}${
+    ["category", "contributor_id"].includes(key)
+      ? `<select ${attrs}>${quickOptions(key, row.values[key])}</select>`
+      : multiline
+        ? `<textarea ${attrs} rows="5">${esc(row.values[key])}</textarea>`
+        : `<input ${attrs} value="${esc(row.values[key])}">`
+  }</label>`;
 }
 function renderQuick() {
-  const q = $("#quickSearch").value.toLowerCase();
   $("#quickTable").innerHTML =
-    "<thead><tr><th>Select</th>" +
-    [
-      "Title",
-      "Category",
-      "Original attribution",
-      "Contributor",
-      "Ingredients",
-      "Directions",
-      "Notes",
-    ]
-      .map((t) => "<th>" + t + "</th>")
-      .join("") +
-    "</tr></thead><tbody>" +
-    quickRows
-      .filter((row) => row.values.title.toLowerCase().includes(q))
+    quickVisible()
       .map(
-        (row) =>
-          `<tr data-row="${esc(row.id)}" class="${quickDirty(row) ? "dirty" : ""}"><td><input type="checkbox" aria-label="Select ${esc(row.values.title)}" ${row.selected ? "checked" : ""}></td>${quickFields.map((k, i) => `<td>${["category", "contributor_id"].includes(k) ? `<select data-col="${i}" aria-label="${esc(k)}">${quickOptions(k, row.values[k])}</select>` : ["ingredients", "instructions", "notes"].includes(k) ? `<textarea data-col="${i}" aria-label="${esc(k)}">${esc(row.values[k])}</textarea>` : `<input data-col="${i}" aria-label="${esc(k)}" value="${esc(row.values[k])}">`}</td>`).join("")}</tr>`,
+        (row) => `
+    <article data-row="${esc(row.id)}" class="quick-row ${quickDirty(row) ? "dirty" : ""}">
+      <div class="quick-row-main">
+        <input class="quick-check" type="checkbox" aria-label="Select ${esc(row.values.title)}" ${row.selected ? "checked" : ""}>
+        ${quickField(row, "title", "Title")}${quickField(row, "category", "Category")}${quickField(row, "contributor_id", "Contributor")}
+        <button class="quiet quick-revert" ${quickDirty(row) ? "" : "disabled"}>Undo</button>
+      </div>
+      <details ${row.expanded ? "open" : ""}><summary>Recipe text <span class="quick-row-status">${row.error ? "Needs attention" : quickDirty(row) ? "Unsaved" : ""}</span></summary>
+        <div class="quick-text-fields">${quickField(row, "ingredients", "Ingredients", true)}${quickField(row, "instructions", "Directions", true)}${quickField(row, "notes", "Notes", true)}${quickField(row, "attribution", "Original attribution")}</div>
+        <p class="muted">Use one ingredient or direction per line.</p>
+      </details>
+      <p class="quick-row-error" ${row.error ? "" : "hidden"}>${esc(row.error || "")}</p>
+    </article>`,
       )
-      .join("") +
-    "</tbody>";
+      .join("") ||
+    '<div class="quick-empty">No recipes match these filters. Change your search or filters to see more.</div>';
+  $("#quickTable")
+    .querySelectorAll("details")
+    .forEach(
+      (el) =>
+        (el.ontoggle = () => {
+          const row = quickRows.find(
+            (r) => r.id === el.closest("[data-row]").dataset.row,
+          );
+          row.expanded = el.open;
+        }),
+    );
   quickStatus();
 }
 $("#quickTable").oninput = (e) => {
-  const tr = e.target.closest("tr[data-row]");
-  if (!tr) return;
-  const row = quickRows.find((r) => r.id === tr.dataset.row);
-  if (e.target.type === "checkbox") {
-    row.selected = e.target.checked;
-    return;
+  if (quickBusy) return;
+  const el = e.target.closest("[data-row]");
+  if (!el) return;
+  const row = quickRows.find((r) => r.id === el.dataset.row);
+  if (e.target.type === "checkbox") row.selected = e.target.checked;
+  else if (e.target.dataset.col !== undefined) {
+    row.values[quickFields[Number(e.target.dataset.col)]] = e.target.value;
+    el.classList.toggle("dirty", quickDirty(row));
+    el.querySelector(".quick-revert").disabled = !quickDirty(row);
+    el.querySelector(".quick-row-status").textContent = row.error
+      ? "Needs attention"
+      : quickDirty(row)
+        ? "Unsaved"
+        : "";
   }
-  row.values[quickFields[Number(e.target.dataset.col)]] = e.target.value;
-  tr.classList.toggle("dirty", quickDirty(row));
+  $("#quickMessage").textContent = "";
   quickStatus();
 };
+$("#quickTable").onclick = (e) => {
+  if (!e.target.closest(".quick-revert") || quickBusy) return;
+  const row = quickRows.find(
+    (r) => r.id === e.target.closest("[data-row]").dataset.row,
+  );
+  row.values = { ...row.original };
+  row.error = "";
+  renderQuick();
+};
+$("#quickSelectAll").onchange = (e) => {
+  $("#quickTable")
+    .querySelectorAll("[data-row]")
+    .forEach((el) => {
+      quickRows.find((r) => r.id === el.dataset.row).selected =
+        e.target.checked;
+      el.querySelector(".quick-check").checked = e.target.checked;
+    });
+  quickStatus();
+};
+$("#quickClearSelection").onclick = () => {
+  quickRows.forEach((row) => (row.selected = false));
+  renderQuick();
+};
+$("#quickUndo").onclick = () => {
+  if (!confirm("Discard all unsaved recipe changes?")) return;
+  quickRows.forEach((row) => {
+    row.values = { ...row.original };
+    row.error = "";
+  });
+  $("#quickMessage").textContent = "Changes discarded.";
+  renderQuick();
+};
+for (const id of ["quickCategory", "quickContributor", "quickView"])
+  $("#" + id).onchange = renderQuick;
+for (const id of ["bulkCategory", "bulkContributor"])
+  $("#" + id).onchange = quickStatus;
 $("#quickTable").onpaste = (e) => {
   const cell = e.target.closest("[data-col]"),
-    tr = e.target.closest("tr[data-row]");
+    tr = e.target.closest("[data-row]");
   if (!cell || !tr) return;
   const text = e.clipboardData.getData("text/plain");
-  if (!text.includes("\t")) return;
-  e.preventDefault();
-  const visible = quickRows.filter((r) =>
-    r.values.title
-      .toLowerCase()
-      .includes($("#quickSearch").value.toLowerCase()),
+  if (quickBusy || cell.tagName === "TEXTAREA" || !text.includes("\t")) return;
+  const visible = [...$("#quickTable").querySelectorAll("[data-row]")].map(
+    (el) => quickRows.find((r) => r.id === el.dataset.row),
   );
   const start = visible.findIndex((r) => r.id === tr.dataset.row),
-    col = Number(cell.dataset.col);
+    col = ["title", "category", "contributor_id"].indexOf(
+      quickFields[Number(cell.dataset.col)],
+    );
+  if (col < 0) return;
+  e.preventDefault();
   text
     .replace(/\r/g, "")
     .replace(/\n$/, "")
@@ -894,7 +1073,7 @@ $("#quickTable").onpaste = (e) => {
       const row = visible[start + i];
       if (!row) return;
       line.split("\t").forEach((v, j) => {
-        const k = quickFields[col + j];
+        const k = ["title", "category", "contributor_id"][col + j];
         if (!k) return;
         if (k === "contributor_id") {
           const c = state.contributors.find(
@@ -911,6 +1090,7 @@ $("#quickTable").onpaste = (e) => {
 };
 $("#quickSearch").oninput = renderQuick;
 $("#applyBulk").onclick = () => {
+  if (quickBusy) return;
   for (const row of quickRows.filter((r) => r.selected)) {
     if ($("#bulkCategory").value)
       row.values.category = $("#bulkCategory").value;
@@ -935,6 +1115,13 @@ $("#quickButton").onclick = () => {
     };
   });
   $("#quickSearch").value = "";
+  $("#quickCategory").innerHTML =
+    '<option value="">All categories</option>' + quickOptions("category", "");
+  $("#quickContributor").innerHTML =
+    '<option value="all">All contributors</option>' +
+    quickOptions("contributor_id", "");
+  $("#quickView").value = "all";
+  $("#quickMessage").textContent = "";
   $("#bulkCategory").innerHTML =
     '<option value="">Keep category</option>' + quickOptions("category", "");
   $("#bulkContributor").innerHTML =
@@ -960,6 +1147,14 @@ $("#quickDialog .close").onclick = () => {
 $("#quickSave").onclick = async () => {
   const changed = quickRows.filter(quickDirty);
   if (!changed.length) return;
+  const invalid = changed.find((row) => !row.values.title.trim());
+  if (invalid) {
+    invalid.error = "Add a title before saving.";
+    $("#quickMessage").textContent =
+      "Every recipe needs a title. Your changes have been kept.";
+    renderQuick();
+    return;
+  }
   quickBusy = true;
   $("#quickDialog")
     .querySelectorAll("input,textarea,select,button")
@@ -967,6 +1162,8 @@ $("#quickSave").onclick = async () => {
   let saved = 0,
     failures = [];
   for (const row of changed) {
+    $("#quickStatus").textContent =
+      `Saving ${saved + failures.length + 1} of ${changed.length}…`;
     try {
       const v = row.values;
       await api("save", {
@@ -988,22 +1185,32 @@ $("#quickSave").onclick = async () => {
         change_note: "Admin quick edit",
       });
       row.original = { ...v };
+      row.error = "";
       row.version++;
       saved++;
     } catch (e) {
+      row.error = e.message;
       failures.push(row.values.title + ": " + e.message);
     }
   }
-  await loadData();
+  let refreshError = "";
+  try {
+    await loadData();
+  } catch {
+    refreshError =
+      " The collection could not refresh. You can close and refresh later.";
+  }
   quickBusy = false;
   $("#quickDialog")
     .querySelectorAll("input,textarea,select,button")
     .forEach((e) => (e.disabled = false));
   renderQuick();
-  $("#quickStatus").textContent =
-    saved +
-    " recipes saved for everyone." +
-    (failures.length ? " Unsaved: " + failures.join(" · ") : "");
+  $("#quickMessage").textContent =
+    `${saved} recipe${saved === 1 ? "" : "s"} saved for everyone.` +
+    (failures.length
+      ? ` ${failures.length} could not save. Your edits are kept; see the message on each recipe.`
+      : "") +
+    refreshError;
 };
 
 $("#categoryForm").onsubmit = async (e) => {

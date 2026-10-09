@@ -125,7 +125,7 @@ async function setup(page, { failure = false, delay = 0 } = {}) {
       const payload = route.request().postDataJSON();
       requests.push(payload);
       if (delay) await new Promise((r) => setTimeout(r, delay));
-      if (failure) {
+      if (typeof failure === "function" ? failure(payload) : failure) {
         await route.fulfill({
           status: 409,
           contentType: "application/json",
@@ -140,6 +140,7 @@ async function setup(page, { failure = false, delay = 0 } = {}) {
         if (r) {
           r.document = { ...r.document, ...payload.document };
           r.version++;
+          r.contributor_id = payload.contributor_id;
         }
         await json({ recipe_id: payload.id || "new-recipe", pending: false });
         return;
@@ -301,11 +302,12 @@ test("quick edit still saves multiline ingredients and owner tools remain reacha
   });
   await page.locator("#manageMenu summary").click();
   await page.locator("#quickButton").click();
+  await page.locator('[data-row="bread"] summary').click();
   await page
-    .locator('tr[data-row="bread"] textarea[data-col="4"]')
+    .locator('[data-row="bread"] textarea[data-col="4"]')
     .fill("3 cups flour\n1 cup water");
   await page.locator("#quickSave").click();
-  await expect(page.locator("#quickStatus")).toContainText("1 recipes saved");
+  await expect(page.locator("#quickMessage")).toContainText("1 recipe saved");
   expect(requests[0].document.ingredients).toEqual([
     "3 cups flour",
     "1 cup water",
@@ -322,4 +324,201 @@ test("quick edit still saves multiline ingredients and owner tools remain reacha
   });
   await expect(page.locator("#photoPreview")).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+async function openQuick(page) {
+  await page.goto("/");
+  await page.locator("#manageMenu summary").click();
+  await page.locator("#quickButton").click();
+}
+test("bulk editing selects filtered rows, retains hidden drafts and saves only changes", async ({
+  page,
+}) => {
+  const { requests, errors } = await setup(page);
+  await openQuick(page);
+  await page.locator("#quickCategory").selectOption("Soups");
+  await page.locator("#quickSelectAll").check();
+  await page.locator("#quickCategory").selectOption("");
+  await expect(page.locator("#quickSelection")).toHaveText("1 selected");
+  await page.locator("#bulkCategory").selectOption("Main dishes");
+  await page.locator("#applyBulk").click();
+  await expect(
+    page.locator('[data-row="soup"] select[data-col="1"]'),
+  ).toHaveValue("Main dishes");
+  await expect(
+    page.locator('[data-row="bread"] select[data-col="1"]'),
+  ).toHaveValue("Breads & muffins");
+  await page
+    .locator('[data-row="bread"] input[data-col="0"]')
+    .fill("Jean’s Bread");
+  await page.locator("#quickSearch").fill("carrot");
+  await expect(page.locator("#quickSave")).toHaveText("Save 2 recipes");
+  await page.locator("#quickSearch").fill("");
+  await page.screenshot({ path: "test-results/quick-desktop.png" });
+  await page.locator("#quickSave").click();
+  await expect(page.locator("#quickMessage")).toContainText("2 recipes saved");
+  expect(requests.filter((r) => r.action === "save")).toHaveLength(2);
+  expect(requests[0].document.media).toEqual(initialRecipes[0].document.media);
+  expect(errors).toEqual([]);
+});
+test("failed batch keeps edits and supports undo without losing other rows", async ({
+  page,
+}) => {
+  const { errors } = await setup(page, { failure: true, delay: 100 });
+  await openQuick(page);
+  await page.locator("#quickSelectAll").check();
+  await page.locator("#bulkContributor").selectOption("");
+  await page.locator("#applyBulk").click();
+  await page.locator("#quickSave").click();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#quickDialog")).toBeVisible();
+  await expect(page.locator("#quickMessage")).toContainText("2 could not save");
+  await expect(page.locator(".quick-row-error").first()).toContainText(
+    "This recipe changed",
+  );
+  await page.locator('[data-row="bread"] .quick-revert').click();
+  await expect(page.locator("#quickSave")).toHaveText("Save 1 recipe");
+  page.once("dialog", (d) => d.dismiss());
+  await page.getByLabel("Close quick editor").click();
+  await expect(page.locator("#quickDialog")).toBeVisible();
+  expect(errors).toEqual([]);
+});
+test("quick editor fits mobile with reachable footer and expanded text", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await setup(page);
+  await openQuick(page);
+  await page.locator('[data-row="bread"] summary').click();
+  await page
+    .locator('[data-row="bread"] textarea[data-col="4"]')
+    .fill("4 cups flour");
+  await expect(page.locator("#quickSave")).toBeInViewport();
+  expect(
+    await page
+      .locator("#quickDialog")
+      .evaluate((el) => el.scrollWidth <= el.clientWidth),
+  ).toBe(true);
+  await page.screenshot({ path: "test-results/quick-mobile.png" });
+});
+
+test("ingredient rows offer measurements and searchable names without changing untouched lines", async ({
+  page,
+}) => {
+  const { requests, errors } = await setup(page);
+  await page.goto("/?recipe=bread");
+  await page.getByRole("button", { name: "Edit recipe", exact: true }).click();
+  await expect(page.getByLabel("Quantity 1", { exact: true })).toHaveValue("2");
+  await expect(page.getByLabel("Measurement 1", { exact: true })).toHaveValue(
+    "cups",
+  );
+  await expect(
+    page.getByLabel("Ingredient 1", { exact: true }),
+  ).toHaveAttribute("list", "ingredientSuggestions");
+  expect(
+    await page
+      .locator("#ingredientSuggestions option")
+      .evaluateAll((options) => options.map((o) => o.value)),
+  ).toContain("flour");
+  await page.getByLabel("Quantity 1", { exact: true }).fill("1 ½");
+  await page.getByLabel("Measurement 1", { exact: true }).selectOption("tbsp");
+  await page
+    .getByLabel("Ingredient 1", { exact: true })
+    .fill("chopped fresh rosemary");
+  await page
+    .getByRole("button", { name: "+ Add ingredient", exact: true })
+    .click();
+  await page.getByLabel("Ingredient 3", { exact: true }).fill("Salt to taste");
+  await page.screenshot({ path: "test-results/ingredient-editor.png" });
+  await page
+    .getByRole("button", { name: "Save for everyone", exact: true })
+    .click();
+  await expect(page.locator("#editorDialog")).not.toBeVisible();
+  expect(requests[0].document.ingredients).toEqual([
+    "1 ½ tbsp chopped fresh rosemary",
+    "1 cup water",
+    "Salt to taste",
+  ]);
+  expect(errors).toEqual([]);
+});
+test("new recipe supports pasted ingredients, row removal and draft protection", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.goto("/");
+  await page.locator("#addButton").click();
+  await page.locator("#ingredientMode").click();
+  await page
+    .locator('textarea[name="ingredients"]')
+    .fill("Sauce:\n½ tsp. salt\n1–2 cans tomatoes");
+  await page.locator("#ingredientMode").click();
+  await expect(page.getByLabel("Ingredient 1", { exact: true })).toHaveValue(
+    "Sauce:",
+  );
+  await expect(page.getByLabel("Quantity 2", { exact: true })).toHaveValue("½");
+  await page.getByLabel("Remove ingredient 2", { exact: true }).click();
+  await page.locator("#ingredientMode").click();
+  await expect(page.locator('textarea[name="ingredients"]')).toHaveValue(
+    "Sauce:\n1–2 cans tomatoes",
+  );
+  page.once("dialog", (d) => d.dismiss());
+  await page.locator("#cancelEditor").click();
+  await expect(page.locator("#editorDialog")).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator("#ingredientMode").click();
+  expect(
+    await page
+      .locator("#editorDialog")
+      .evaluate((el) => el.scrollWidth <= el.clientWidth),
+  ).toBe(true);
+});
+
+test("partially saved batches retry only unsaved rows", async ({ page }) => {
+  let failed = false;
+  const { requests } = await setup(page, {
+    failure: (payload) => {
+      if (payload.id === "soup" && !failed) {
+        failed = true;
+        return true;
+      }
+      return false;
+    },
+  });
+  await openQuick(page);
+  await page.locator("#quickSelectAll").check();
+  await page.locator("#bulkCategory").selectOption("Main dishes");
+  await page.locator("#applyBulk").click();
+  await page.locator("#quickSave").click();
+  await expect(page.locator("#quickMessage")).toContainText("1 could not save");
+  await expect(page.locator("#quickSave")).toHaveText("Save 1 recipe");
+  await page.locator("#quickSave").click();
+  await expect(page.locator("#quickMessage")).toHaveText(
+    "1 recipe saved for everyone.",
+  );
+  expect(requests.filter((r) => r.id === "bread")).toHaveLength(1);
+  expect(requests.filter((r) => r.id === "soup")).toHaveLength(2);
+});
+test("spreadsheet paste follows visible metadata column order", async ({
+  page,
+}) => {
+  const { requests } = await setup(page);
+  await openQuick(page);
+  await page
+    .locator('[data-row="bread"] input[data-col="0"]')
+    .evaluate((el) => {
+      const clipboardData = new DataTransfer();
+      clipboardData.setData("text/plain", "Updated Bread\tMain dishes\tJean");
+      el.dispatchEvent(
+        new ClipboardEvent("paste", {
+          clipboardData,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+  await page.locator("#quickSave").click();
+  await expect(page.locator("#quickMessage")).toContainText("1 recipe saved");
+  expect(requests[0].document.title).toBe("Updated Bread");
+  expect(requests[0].document.category).toBe("Main dishes");
+  expect(requests[0].contributor_id).toBe("jean");
 });
