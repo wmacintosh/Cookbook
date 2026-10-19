@@ -1490,3 +1490,48 @@ legend {
   color: #a02925;
   border-color: #d8aaa8;
 }
+
+.dedication {
+  max-width: 960px;
+  margin: 2.5rem auto;
+  padding: 2.5rem clamp(1.25rem, 4vw, 3rem);
+  background: #faf8f3;
+  border: 1px solid #e7e1d5;
+  border-radius: 12px;
+}
+.dedication > .overline {
+  margin: 0 0 0.75rem;
+}
+.dedication h2 {
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
+  margin-bottom: 1.5rem;
+}
+.dedication-copy {
+  max-width: 72ch;
+  line-height: 1.85;
+}
+.dedication-copy p {
+  margin: 0 0 1rem;
+}
+.dedication-copy .dedication-closing {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--navy);
+  margin: 1.5rem 0 0;
+  padding-top: 1.25rem;
+  border-top: 1px solid #e7e1d5;
+}
+@media (max-width: 680px) {
+  .dedication {
+    margin: 1.25rem 5vw;
+    padding: 1.5rem 1.25rem;
+  }
+  .dedication-copy {
+    line-height: 1.75;
+  }
+}
+@media print {
+  .dedication {
+    display: none;
+  }
+}
