@@ -724,7 +724,7 @@ $("#inviteForm").onsubmit = async (e) => {
   try {
     const f = new FormData(e.target),
       r = await api("invite", { name: f.get("name"), email: f.get("email") });
-    const link = location.origin + "/#invite=" + r.token;
+    const link = location.origin + "/recipes.html#invite=" + r.token;
     $("#inviteResult").innerHTML =
       "<p>Share this private, single-use link with " +
       esc(f.get("name")) +

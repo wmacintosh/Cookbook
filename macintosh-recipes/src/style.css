@@ -1502,7 +1502,7 @@ legend {
 .dedication > .overline {
   margin: 0 0 0.75rem;
 }
-.dedication h2 {
+.dedication h1 {
   font-size: clamp(1.5rem, 3vw, 2.2rem);
   margin-bottom: 1.5rem;
 }
@@ -1534,4 +1534,30 @@ legend {
   .dedication {
     display: none;
   }
+}
+
+.landing-page {
+  background: #faf8f3;
+}
+.landing-page header {
+  background: #fff;
+}
+.landing-page .dedication {
+  border: 0;
+  border-radius: 0;
+}
+.landing-enter {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-top: 2rem;
+  padding: 0.85rem 1.3rem;
+  border-radius: 7px;
+  background: var(--teal);
+  color: white;
+  text-decoration: none;
+  font-weight: 600;
+}
+.landing-enter:hover {
+  background: var(--navy);
 }

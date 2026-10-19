@@ -166,7 +166,7 @@ test("desktop filtering, accessible tabs, cooking mode, and browser Back", async
   page,
 }) => {
   const { errors } = await setup(page);
-  await page.goto("/");
+  await page.goto("/recipes.html");
   await expect(page.locator("#recipeCount")).toHaveText("2 recipes");
   await page.locator('[data-id="bread"]').click();
   await expect(page).toHaveURL(/recipe=bread/);
@@ -196,7 +196,7 @@ test("unchanged polling preserves the scan iframe and keyboard focus", async ({
 }) => {
   await setup(page);
   await page.clock.install();
-  await page.goto("/?recipe=bread&tab=scan");
+  await page.goto("/recipes.html?recipe=bread&tab=scan");
   await expect(page.locator(".scan-frame")).toBeVisible();
   await page
     .locator(".scan-frame")
@@ -214,7 +214,7 @@ test("editor keeps drafts on cancel and errors, and blocks dismissal while savin
   page,
 }) => {
   const { requests, errors } = await setup(page, { failure: true, delay: 300 });
-  await page.goto("/?recipe=bread");
+  await page.goto("/recipes.html?recipe=bread");
   await page.getByRole("button", { name: "Edit recipe", exact: true }).click();
   await page.getByLabel("Recipe title", { exact: true }).fill("Changed bread");
   page.once("dialog", (d) => d.dismiss());
@@ -243,7 +243,7 @@ test("saving updates the recipe; review shows labelled changes", async ({
   page,
 }) => {
   const { requests, errors } = await setup(page);
-  await page.goto("/?recipe=bread");
+  await page.goto("/recipes.html?recipe=bread");
   await page.getByRole("button", { name: "Edit recipe", exact: true }).click();
   await page
     .getByLabel("Recipe title", { exact: true })
@@ -274,7 +274,7 @@ test("mobile filters return to results, Back restores a recipe button, layout fi
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const { errors } = await setup(page);
-  await page.goto("/");
+  await page.goto("/recipes.html");
   await page.locator('[data-id="bread"]').click();
   await expect(page.locator(".recipe-browser")).not.toBeVisible();
   await page.locator("#search").fill("carrot");
@@ -304,7 +304,7 @@ test("quick edit still saves multiline ingredients and owner tools remain reacha
   page,
 }) => {
   const { requests, errors } = await setup(page);
-  await page.goto("/?recipe=bread");
+  await page.goto("/recipes.html?recipe=bread");
   await page.screenshot({
     path: "test-results/desktop-recipe.png",
     fullPage: true,
@@ -336,7 +336,7 @@ test("quick edit still saves multiline ingredients and owner tools remain reacha
 });
 
 async function openQuick(page) {
-  await page.goto("/");
+  await page.goto("/recipes.html");
   await page.locator("#manageMenu summary").click();
   await page.locator("#quickButton").click();
 }
@@ -415,7 +415,7 @@ test("ingredient rows offer measurements and searchable names without changing u
   page,
 }) => {
   const { requests, errors } = await setup(page);
-  await page.goto("/?recipe=bread");
+  await page.goto("/recipes.html?recipe=bread");
   await page.getByRole("button", { name: "Edit recipe", exact: true }).click();
   await expect(page.getByLabel("Quantity 1", { exact: true })).toHaveValue("2");
   await expect(page.getByLabel("Measurement 1", { exact: true })).toHaveValue(
@@ -454,7 +454,7 @@ test("new recipe supports pasted ingredients, row removal and draft protection",
   page,
 }) => {
   await setup(page);
-  await page.goto("/");
+  await page.goto("/recipes.html");
   await page.locator("#addButton").click();
   await page.locator("#ingredientMode").click();
   await page
