@@ -1641,3 +1641,145 @@ legend {
     margin-top: 0.8rem;
   }
 }
+
+/* Family heritage theme continues through sign-in, browsing and editing. */
+.recipe-page {
+  --navy: #234e3d;
+  --teal: #234e3d;
+  --ink: #303a32;
+  --muted: #626b60;
+  --line: #ded8c9;
+  --soft: #f2eee3;
+  --paper: #faf8f3;
+  background: #183b30 url("/assets/macintosh-tartan.jpg") repeat;
+  background-size: 360px auto;
+}
+.recipe-page header {
+  background: #faf8f3;
+  border-top: 8px solid transparent;
+  border-image: url("/assets/macintosh-tartan.jpg") 8 repeat;
+  border-bottom: 2px solid #b69b55;
+}
+.heritage-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+.brand-crest {
+  flex: 0 0 58px;
+  width: 58px;
+  height: 58px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: white;
+}
+.brand-crest img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: scale(1.4);
+}
+.brand-name {
+  min-width: 0;
+}
+.recipe-page #collection {
+  width: calc(100% - 3rem);
+  margin: 1.5rem auto;
+  padding: 1.5rem clamp(1rem, 2.5vw, 2.5rem) 2.5rem;
+  min-height: calc(100svh - 160px);
+  background: #faf8f3;
+  border-top: 4px solid #234e3d;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px #0003;
+}
+.recipe-page .auth {
+  width: calc(100% - 3rem);
+  background: #faf8f3;
+  border-top: 4px solid #234e3d;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px #0003;
+}
+.recipe-page .auth-card {
+  background: #f2eee3;
+}
+.recipe-page .recipe-panel {
+  background: #fffdf8;
+  border-top: 3px solid #b69b55;
+}
+.recipe-page .recipe-item {
+  background: #fffdf8;
+}
+.recipe-page .recipe-item.active {
+  background: #edf2e9;
+  border-top-color: #8c9e85;
+  border-right-color: #8c9e85;
+  border-bottom-color: #8c9e85;
+}
+.recipe-page .quiet {
+  background: #fffdf8;
+}
+.recipe-page .categories button {
+  background: #f2eee3;
+}
+.recipe-page .categories button.active {
+  background: #234e3d;
+  color: white;
+  border-color: #234e3d;
+}
+.recipe-page .tabs button.active {
+  color: #234e3d;
+  border-color: #234e3d;
+}
+.recipe-page dialog {
+  background: #fffdf8;
+}
+.recipe-page button:focus-visible,
+.recipe-page a:focus-visible {
+  outline-color: #9d823e;
+}
+.recipe-page input:focus,
+.recipe-page textarea:focus,
+.recipe-page select:focus {
+  outline-color: #a7b89b;
+}
+@media (max-width: 680px) {
+  .heritage-brand {
+    gap: 0.65rem;
+  }
+  .brand-crest {
+    flex-basis: 48px;
+    width: 48px;
+    height: 48px;
+  }
+  .recipe-page #collection {
+    width: calc(100% - 1rem);
+    margin: 0.5rem auto;
+    padding: 1.1rem 0.9rem 2rem;
+    border-radius: 8px;
+  }
+  .recipe-page .auth {
+    width: calc(100% - 1rem);
+    margin: 0.5rem auto;
+    padding: 1.2rem;
+  }
+}
+@media print {
+  .recipe-page {
+    background: white;
+  }
+  .recipe-page #collection {
+    width: 100%;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    background: white;
+    border: 0;
+    box-shadow: none;
+  }
+  .recipe-page .recipe-panel {
+    border: 0;
+    box-shadow: none;
+    background: white;
+  }
+}
