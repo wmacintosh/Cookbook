@@ -1561,3 +1561,83 @@ legend {
 .landing-enter:hover {
   background: var(--navy);
 }
+
+/* The original family tartan frames the dedication, keeping its text on paper. */
+.landing-page {
+  background: #183b30 url("/assets/macintosh-tartan.jpg") repeat;
+  background-size: 360px auto;
+}
+.landing-page header {
+  background: #faf8f3;
+  border-bottom: 3px solid #b69b55;
+}
+.landing-page .dedication {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: clamp(2rem, 4vw, 3.5rem);
+  max-width: 1100px;
+  margin: 2.5rem auto;
+  width: calc(100% - 4rem);
+  box-sizing: border-box;
+  background: #faf8f3;
+  border-top: 5px solid #234e3d;
+  box-shadow: 0 14px 50px #0005;
+}
+.heritage-mark {
+  text-align: center;
+  padding-top: 0.3rem;
+}
+.crest-frame {
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 0 0 1px #e7e1d5;
+}
+.crest-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: scale(1.4);
+}
+.heritage-name {
+  margin: 1.4rem 0 0.3rem;
+  font-family: var(--serif);
+  font-size: 1.4rem;
+  color: #234e3d;
+}
+.heritage-caption {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.dedication-reading {
+  min-width: 0;
+}
+.dedication-reading > .overline {
+  margin-top: 0;
+  color: #234e3d;
+}
+.landing-enter {
+  background: #234e3d;
+}
+.landing-enter:hover {
+  background: #163729;
+}
+@media (max-width: 760px) {
+  .landing-page .dedication {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.8rem;
+    width: calc(100% - 2rem);
+    margin: 1rem auto;
+    padding: 1.6rem 1.3rem;
+  }
+  .heritage-mark {
+    max-width: 160px;
+    margin: 0 auto;
+  }
+  .heritage-name {
+    margin-top: 0.8rem;
+  }
+}

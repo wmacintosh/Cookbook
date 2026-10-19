@@ -1,5 +1,5 @@
 import { build } from "esbuild";
-import { mkdir, copyFile } from "node:fs/promises";
+import { mkdir, copyFile, cp } from "node:fs/promises";
 await mkdir("dist", { recursive: true });
 await build({
   entryPoints: ["src/app.js", "src/landing.js"],
@@ -11,3 +11,5 @@ await build({
 });
 for (const f of ["index.html", "recipes.html", "style.css"])
   await copyFile("src/" + f, "dist/" + f);
+
+await cp("src/assets", "dist/assets", { recursive: true });
